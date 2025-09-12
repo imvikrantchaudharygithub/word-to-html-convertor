@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word to HTML Converter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    animation: {
+                        'pulse-slow': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom styles for the HTML preview */
+        .preview-content h1 {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin: 1rem 0 0.5rem 0;
+            color: #1f2937;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 0.25rem;
+        }
+        
+        .preview-content h2 {
+            font-size: 1.25rem;
+            font-weight: bold;
+            margin: 0.75rem 0 0.5rem 0;
+            color: #374151;
+        }
+        
+        .preview-content h3 {
+            font-size: 1.125rem;
+            font-weight: bold;
+            margin: 0.75rem 0 0.5rem 0;
+            color: #4b5563;
+        }
+        
+        .preview-content h4, .preview-content h5, .preview-content h6 {
+            font-size: 1rem;
+            font-weight: bold;
+            margin: 0.5rem 0 0.25rem 0;
+            color: #6b7280;
+        }
+        
+        .preview-content p {
+            margin: 0.5rem 0;
+            line-height: 1.6;
+            color: #374151;
+        }
+        
+        .preview-content ul {
+            margin: 0.5rem 0;
+            padding-left: 1.5rem;
+            list-style-type: disc;
+        }
+        
+        .preview-content ol {
+            margin: 0.5rem 0;
+            padding-left: 1.5rem;
+            list-style-type: decimal;
+        }
+        
+        .preview-content li {
+            margin: 0.25rem 0;
+            line-height: 1.5;
+            color: #374151;
+        }
+        
+        .preview-content ul ul, .preview-content ol ol {
+            margin: 0.25rem 0;
+            padding-left: 1rem;
+        }
+        
+        .preview-content ul ul {
+            list-style-type: circle;
+        }
+        
+        .preview-content ul ul ul {
+            list-style-type: square;
+        }
+        
+        .preview-content a {
+            color: #2563eb;
+            text-decoration: underline;
+        }
+        
+        .preview-content a:hover {
+            color: #1d4ed8;
+        }
+        
+        .preview-content em, .preview-content i {
+            font-style: italic;
+        }
+        
+        .preview-content u {
+            text-decoration: underline;
+        }
+        
+        .preview-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 0.5rem 0;
+        }
+        
+        .preview-content th, .preview-content td {
+            border: 1px solid #d1d5db;
+            padding: 0.5rem;
+            text-align: left;
+        }
+        
+        .preview-content th {
+            background-color: #f9fafb;
+            font-weight: bold;
+        }
+        
+        .preview-content blockquote {
+            border-left: 4px solid #d1d5db;
+            padding-left: 1rem;
+            margin: 0.5rem 0;
+            color: #6b7280;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">Word to HTML Converter</h1>
+            <p class="text-gray-600">Convert Microsoft Word documents (.docx, .doc) to clean HTML</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Left Column: Upload and Controls -->
+            <div class="space-y-6">
+                <!-- File Upload Section -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">Upload Word Document</h2>
+                    
+                    <!-- File Input -->
+                    <div class="mb-4">
+                        <label for="fileInput" class="block text-sm font-medium text-gray-700 mb-2">
+                            Select File (.docx or .doc, max 10MB)
+                        </label>
+                        <input 
+                            type="file" 
+                            id="fileInput" 
+                            accept=".docx,.doc"
+                            class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 border border-gray-300 rounded-lg cursor-pointer"
+                        >
+                    </div>
+
+                    <!-- Convert Button -->
+                    <button 
+                        id="convertBtn" 
+                        class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 disabled:cursor-not-allowed"
+                        onclick="convertFile()"
+                    >
+                        <span id="convertBtnText">Convert to HTML</span>
+                    </button>
+                    
+                    <!-- Debug Button removed for cleaner interface -->
+
+                    <!-- Progress Bar -->
+                    <div id="progressContainer" class="mt-4 hidden">
+                        <div class="flex justify-between text-sm text-gray-600 mb-1">
+                            <span>Converting...</span>
+                            <span id="progressText">0%</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div id="progressBar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Status Messages -->
+                    <div id="statusMessage" class="mt-4 hidden">
+                        <div id="errorMessage" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg hidden">
+                            <strong>Error:</strong> <span id="errorText"></span>
+                        </div>
+                        <div id="successMessage" class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg hidden">
+                            <strong>Success:</strong> <span id="successText"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- HTML Output Section -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-semibold text-gray-800">HTML Output</h2>
+                        <button 
+                            id="copyBtn" 
+                            class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200 hidden"
+                            onclick="copyToClipboard()"
+                        >
+                            Copy HTML
+                        </button>
+                    </div>
+                    
+                    <textarea 
+                        id="htmlOutput" 
+                        class="w-full h-64 p-3 border border-gray-300 rounded-lg font-mono text-sm resize-y focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                        placeholder="Converted HTML will appear here..."
+                        readonly
+                    ></textarea>
+                </div>
+            </div>
+
+            <!-- Right Column: Preview -->
+            <div class="space-y-6">
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-semibold text-gray-800">HTML Preview</h2>
+                        <button 
+                            id="refreshPreviewBtn" 
+                            class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1 px-3 rounded text-sm transition duration-200 hidden"
+                            onclick="refreshPreview()"
+                        >
+                            Refresh Preview
+                        </button>
+                    </div>
+                    <div 
+                        id="previewArea" 
+                        class="border border-gray-300 rounded-lg p-4 min-h-96 bg-white overflow-auto preview-content"
+                        style="max-height: 600px;"
+                    >
+                        <div class="text-gray-500 text-center py-8">
+                            Preview will appear here after conversion
+                        </div>
+                    </div>
+                    <div id="previewDebug" class="mt-2 text-xs text-gray-500 hidden">
+                        Preview debug info will appear here
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center mt-12 text-gray-500 text-sm">
+            <p>Secure conversion • Files are processed locally and not stored • Clean HTML output</p>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let isConverting = false;
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileInput = document.getElementById('fileInput');
+            fileInput.addEventListener('change', handleFileSelection);
+            
+            // Reset UI state
+            resetUI();
+        });
+
+        function handleFileSelection() {
+            const fileInput = document.getElementById('fileInput');
+            const convertBtn = document.getElementById('convertBtn');
+            const debugBtn = document.getElementById('debugBtn'); // This might be null if commented out
+            
+            if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                
+                // Validate file type
+                if (!file.name.toLowerCase().endsWith('.docx') && !file.name.toLowerCase().endsWith('.doc')) {
+                    showError('Please select a valid Word document (.docx or .doc)');
+                    fileInput.value = '';
+                    return;
+                }
+                
+                // Validate file size (10MB limit)
+                if (file.size > 10 * 1024 * 1024) {
+                    showError('File size exceeds 10MB limit. Please select a smaller file.');
+                    fileInput.value = '';
+                    return;
+                }
+                
+                convertBtn.disabled = false;
+                if (debugBtn) debugBtn.disabled = false; // Only set if element exists
+                hideMessages();
+            } else {
+                convertBtn.disabled = true;
+                if (debugBtn) debugBtn.disabled = true; // Only set if element exists
+            }
+        }
+
+        async function convertFile() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showError('Please select a file first');
+                return;
+            }
+            
+            if (isConverting) {
+                return;
+            }
+            
+            isConverting = true;
+            setConvertingState(true);
+            hideMessages();
+            showProgress();
+            
+            try {
+                const formData = new FormData();
+                formData.append('wordFile', file);
+                
+                // Create XMLHttpRequest for progress tracking
+                const xhr = new XMLHttpRequest();
+                
+                // Track upload progress
+                xhr.upload.addEventListener('progress', function(e) {
+                    if (e.lengthComputable) {
+                        const percentComplete = (e.loaded / e.total) * 100;
+                        updateProgress(Math.round(percentComplete));
+                    }
+                });
+                
+                // Handle response
+                xhr.addEventListener('load', function() {
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        
+                        if (xhr.status === 200) {
+                            // Success
+                            handleConversionSuccess(response, file.name);
+                        } else {
+                            // Error response
+                            showError(response.error || 'Conversion failed');
+                        }
+                    } catch (e) {
+                        showError('Invalid response from server');
+                    } finally {
+                        setConvertingState(false);
+                        hideProgress();
+                        isConverting = false;
+                    }
+                });
+                
+                // Handle network errors
+                xhr.addEventListener('error', function() {
+                    showError('Network error. Please check your connection and try again.');
+                    setConvertingState(false);
+                    hideProgress();
+                    isConverting = false;
+                });
+                
+                // Send the request
+                xhr.open('POST', '/api/convert');
+                xhr.send(formData);
+                
+            } catch (error) {
+                console.error('Conversion error:', error);
+                showError('An unexpected error occurred. Please try again.');
+                setConvertingState(false);
+                hideProgress();
+                isConverting = false;
+            }
+        }
+
+        // Debug function removed since debug button is commented out
+
+        function handleConversionSuccess(response, filename) {
+            const htmlOutput = document.getElementById('htmlOutput');
+            const previewArea = document.getElementById('previewArea');
+            const copyBtn = document.getElementById('copyBtn');
+            const refreshPreviewBtn = document.getElementById('refreshPreviewBtn');
+            const previewDebug = document.getElementById('previewDebug');
+            
+            // Set the HTML output
+            htmlOutput.value = response.html;
+            
+            // Store the HTML for refresh functionality
+            window.currentHtml = response.html;
+            
+            // Update preview with better error handling
+            try {
+                if (response.html && response.html.trim()) {
+                    previewArea.innerHTML = response.html;
+                    console.log('Preview updated successfully with', response.html.length, 'characters');
+                    
+                    // Show debug info
+                    const headingCount = (response.html.match(/<h[1-6]>/g) || []).length;
+                    const listCount = (response.html.match(/<ul>/g) || []).length;
+                    const listItemCount = (response.html.match(/<li>/g) || []).length;
+                    
+                    previewDebug.innerHTML = `Preview loaded: ${response.html.length} chars, ${headingCount} headings, ${listCount} lists, ${listItemCount} items`;
+                    previewDebug.classList.remove('hidden');
+                    
+                } else {
+                    previewArea.innerHTML = '<div class="text-red-500 text-center py-8">No HTML content received from conversion</div>';
+                    previewDebug.innerHTML = 'Error: No HTML content received';
+                    previewDebug.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Error updating preview:', error);
+                previewArea.innerHTML = '<div class="text-red-500 text-center py-8">Error displaying preview: ' + error.message + '</div>';
+                previewDebug.innerHTML = 'Error: ' + error.message;
+                previewDebug.classList.remove('hidden');
+            }
+            
+            // Show copy button and refresh button
+            copyBtn.classList.remove('hidden');
+            refreshPreviewBtn.classList.remove('hidden');
+            
+            // Show success message
+            showSuccess(`Successfully converted "${filename}" to HTML (${response.size} characters)`);
+        }
+
+        function refreshPreview() {
+            const previewArea = document.getElementById('previewArea');
+            const previewDebug = document.getElementById('previewDebug');
+            
+            if (window.currentHtml) {
+                try {
+                    previewArea.innerHTML = window.currentHtml;
+                    previewDebug.innerHTML = 'Preview refreshed successfully';
+                    console.log('Preview refreshed');
+                } catch (error) {
+                    previewArea.innerHTML = '<div class="text-red-500 text-center py-8">Error refreshing preview: ' + error.message + '</div>';
+                    previewDebug.innerHTML = 'Refresh error: ' + error.message;
+                }
+            } else {
+                previewArea.innerHTML = '<div class="text-yellow-500 text-center py-8">No HTML content to refresh. Please convert a document first.</div>';
+                previewDebug.innerHTML = 'No content available for refresh';
+            }
+        }
+
+        function copyToClipboard() {
+            const htmlOutput = document.getElementById('htmlOutput');
+            
+            if (htmlOutput.value) {
+                // Use the modern clipboard API if available
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(htmlOutput.value).then(function() {
+                        showTempMessage('HTML copied to clipboard!', 'success');
+                    }).catch(function() {
+                        fallbackCopy();
+                    });
+                } else {
+                    fallbackCopy();
+                }
+            }
+            
+            function fallbackCopy() {
+                htmlOutput.select();
+                htmlOutput.setSelectionRange(0, 99999); // For mobile devices
+                
+                try {
+                    document.execCommand('copy');
+                    showTempMessage('HTML copied to clipboard!', 'success');
+                } catch (err) {
+                    showTempMessage('Failed to copy. Please select and copy manually.', 'error');
+                }
+            }
+        }
+
+        function showTempMessage(message, type) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `fixed top-4 right-4 px-4 py-2 rounded-lg text-white font-semibold z-50 ${
+                type === 'success' ? 'bg-green-500' : 'bg-red-500'
+            }`;
+            messageDiv.textContent = message;
+            
+            document.body.appendChild(messageDiv);
+            
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 3000);
+        }
+
+        function setConvertingState(converting) {
+            const convertBtn = document.getElementById('convertBtn');
+            const convertBtnText = document.getElementById('convertBtnText');
+            const debugBtn = document.getElementById('debugBtn'); // Might be null
+            const debugBtnText = document.getElementById('debugBtnText'); // Might be null
+            const fileInput = document.getElementById('fileInput');
+            
+            if (converting) {
+                convertBtn.disabled = true;
+                if (debugBtn) debugBtn.disabled = true;
+                convertBtnText.textContent = 'Converting...';
+                if (debugBtnText) debugBtnText.textContent = 'Processing...';
+                fileInput.disabled = true;
+            } else {
+                convertBtn.disabled = false;
+                if (debugBtn) debugBtn.disabled = false;
+                convertBtnText.textContent = 'Convert to HTML';
+                if (debugBtnText) debugBtnText.textContent = 'Debug Conversion';
+                fileInput.disabled = false;
+            }
+        }
+
+        function showProgress() {
+            const progressContainer = document.getElementById('progressContainer');
+            progressContainer.classList.remove('hidden');
+            updateProgress(0);
+        }
+
+        function hideProgress() {
+            const progressContainer = document.getElementById('progressContainer');
+            progressContainer.classList.add('hidden');
+        }
+
+        function updateProgress(percent) {
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            
+            progressBar.style.width = percent + '%';
+            progressText.textContent = percent + '%';
+        }
+
+        function showError(message) {
+            const statusMessage = document.getElementById('statusMessage');
+            const errorMessage = document.getElementById('errorMessage');
+            const errorText = document.getElementById('errorText');
+            const successMessage = document.getElementById('successMessage');
+            
+            errorText.textContent = message;
+            statusMessage.classList.remove('hidden');
+            errorMessage.classList.remove('hidden');
+            successMessage.classList.add('hidden');
+        }
+
+        function showSuccess(message) {
+            const statusMessage = document.getElementById('statusMessage');
+            const successMessage = document.getElementById('successMessage');
+            const successText = document.getElementById('successText');
+            const errorMessage = document.getElementById('errorMessage');
+            
+            successText.textContent = message;
+            statusMessage.classList.remove('hidden');
+            successMessage.classList.remove('hidden');
+            errorMessage.classList.add('hidden');
+        }
+
+        function hideMessages() {
+            const statusMessage = document.getElementById('statusMessage');
+            statusMessage.classList.add('hidden');
+        }
+
+        function resetUI() {
+            const htmlOutput = document.getElementById('htmlOutput');
+            const previewArea = document.getElementById('previewArea');
+            const copyBtn = document.getElementById('copyBtn');
+            
+            htmlOutput.value = '';
+            previewArea.innerHTML = '<div class="text-gray-500 text-center py-8">Preview will appear here after conversion</div>';
+            copyBtn.classList.add('hidden');
+            hideMessages();
+            hideProgress();
+        }
+    </script>
+</body>
+</html>
