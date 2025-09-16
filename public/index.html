@@ -126,6 +126,62 @@
             color: #6b7280;
             font-style: italic;
         }
+
+        /* Heading Editor Styles */
+        .heading-item {
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            background-color: #f9fafb;
+            transition: all 0.2s ease;
+        }
+
+        .heading-item:hover {
+            border-color: #d1d5db;
+            background-color: #f3f4f6;
+        }
+
+        .heading-text {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #1f2937;
+            word-wrap: break-word;
+        }
+
+        .heading-controls {
+            display: flex;
+            gap: 0.25rem;
+            flex-wrap: wrap;
+        }
+
+        .heading-btn {
+            padding: 0.25rem 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.25rem;
+            background-color: #ffffff;
+            color: #374151;
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .heading-btn:hover {
+            background-color: #f3f4f6;
+            border-color: #9ca3af;
+        }
+
+        .heading-btn.active {
+            background-color: #3b82f6;
+            color: #ffffff;
+            border-color: #3b82f6;
+        }
+
+        .heading-btn.active:hover {
+            background-color: #2563eb;
+            border-color: #2563eb;
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -212,23 +268,51 @@
                 </div>
             </div>
 
-            <!-- Right Column: Preview -->
+            <!-- Right Column: Heading Editor -->
             <div class="space-y-6">
                 <div class="bg-white rounded-lg shadow-md p-6">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-xl font-semibold text-gray-800">HTML Preview</h2>
-                        <button 
-                            id="refreshPreviewBtn" 
-                            class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1 px-3 rounded text-sm transition duration-200 hidden"
-                            onclick="refreshPreview()"
-                        >
-                            Refresh Preview
-                        </button>
+                    <div class="mb-4">
+                        <div class="flex justify-between items-start">
+                            <h2 class="text-xl font-semibold text-gray-800">Heading Editor</h2>
+                            <div class="flex gap-2">
+                                <button 
+                                    id="applyChangesBtn" 
+                                    class="bg-green-600 hover:bg-green-700 text-white font-semibold py-1 px-3 rounded text-sm transition duration-200 hidden"
+                                    onclick="applyHeadingChanges()"
+                                >
+                                    Apply Changes
+                                </button>
+                                <button 
+                                    id="refreshPreviewBtn" 
+                                    class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1 px-3 rounded text-sm transition duration-200 hidden"
+                                    onclick="refreshPreview()"
+                                >
+                                    Refresh
+                                </button>
+                            </div>
+                        </div>
+                        <div id="headingStats" class="text-sm text-gray-600 mt-2 hidden bg-gray-50 px-3 py-2 rounded border">
+                            Heading counts will appear here
+                        </div>
                     </div>
                     <div 
+                        id="headingEditor" 
+                        class="border border-gray-300 rounded-lg p-4 min-h-96 bg-white overflow-auto"
+                        style="max-height: 400px;"
+                    >
+                        <div class="text-gray-500 text-center py-8">
+                            Headings will appear here after conversion for editing
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- HTML Preview Section -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">HTML Preview</h2>
+                    <div 
                         id="previewArea" 
-                        class="border border-gray-300 rounded-lg p-4 min-h-96 bg-white overflow-auto preview-content"
-                        style="max-height: 600px;"
+                        class="border border-gray-300 rounded-lg p-4 min-h-64 bg-white overflow-auto preview-content"
+                        style="max-height: 400px;"
                     >
                         <div class="text-gray-500 text-center py-8">
                             Preview will appear here after conversion
@@ -250,6 +334,8 @@
     <script>
         // Global variables
         let isConverting = false;
+        let headingsData = [];
+        let currentHtmlDOM = null;
 
         // Initialize the application
         document.addEventListener('DOMContentLoaded', function() {
@@ -373,6 +459,7 @@
             const previewArea = document.getElementById('previewArea');
             const copyBtn = document.getElementById('copyBtn');
             const refreshPreviewBtn = document.getElementById('refreshPreviewBtn');
+            const applyChangesBtn = document.getElementById('applyChangesBtn');
             const previewDebug = document.getElementById('previewDebug');
             
             // Set the HTML output
@@ -381,9 +468,18 @@
             // Store the HTML for refresh functionality
             window.currentHtml = response.html;
             
-            // Update preview with better error handling
+            // Parse HTML and extract headings
             try {
                 if (response.html && response.html.trim()) {
+                    // Create DOM from HTML
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(response.html, 'text/html');
+                    currentHtmlDOM = doc;
+                    
+                    // Extract and populate heading editor
+                    populateHeadingEditor(doc);
+                    
+                    // Update preview
                     previewArea.innerHTML = response.html;
                     console.log('Preview updated successfully with', response.html.length, 'characters');
                     
@@ -407,12 +503,164 @@
                 previewDebug.classList.remove('hidden');
             }
             
-            // Show copy button and refresh button
+            // Show buttons
             copyBtn.classList.remove('hidden');
             refreshPreviewBtn.classList.remove('hidden');
+            applyChangesBtn.classList.remove('hidden');
             
             // Show success message
             showSuccess(`Successfully converted "${filename}" to HTML (${response.size} characters)`);
+        }
+
+        function populateHeadingEditor(doc) {
+            const headingEditor = document.getElementById('headingEditor');
+            const headingStats = document.getElementById('headingStats');
+            const headings = doc.querySelectorAll('h1, h2, h3, h4, h5, h6');
+            
+            headingsData = [];
+            let headingHtml = '';
+            
+            if (headings.length === 0) {
+                headingEditor.innerHTML = '<div class="text-gray-500 text-center py-8">No headings found in the document</div>';
+                headingStats.classList.add('hidden');
+                return;
+            }
+            
+            // Calculate heading counts
+            const counts = { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 };
+            
+            headings.forEach((heading, index) => {
+                const currentLevel = heading.tagName.toLowerCase();
+                const text = heading.textContent.trim();
+                const shortText = text.length > 60 ? text.substring(0, 60) + '...' : text;
+                
+                // Count headings
+                counts[currentLevel]++;
+                
+                // Store heading data
+                headingsData.push({
+                    index: index,
+                    element: heading,
+                    originalLevel: currentLevel,
+                    currentLevel: currentLevel,
+                    text: text
+                });
+                
+                // Create heading editor item
+                headingHtml += `
+                    <div class="heading-item">
+                        <div class="heading-text">${shortText}</div>
+                        <div class="heading-controls">
+                            ${['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].map(level => 
+                                `<button class="heading-btn ${currentLevel === level ? 'active' : ''}" 
+                                         onclick="changeHeadingLevel(${index}, '${level}')">${level.toUpperCase()}</button>`
+                            ).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            // Display heading counts in a more compact format
+            const activeHeadings = Object.entries(counts).filter(([level, count]) => count > 0);
+            
+            let statsHtml = `<div class="font-medium">Total: ${headings.length} headings</div>`;
+            if (activeHeadings.length > 0) {
+                const countItems = activeHeadings.map(([level, count]) => 
+                    `<span class="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium mr-1 mb-1">${level.toUpperCase()}: ${count}</span>`
+                ).join('');
+                statsHtml += `<div class="mt-2">${countItems}</div>`;
+            }
+            
+            headingStats.innerHTML = statsHtml;
+            headingStats.classList.remove('hidden');
+            
+            headingEditor.innerHTML = headingHtml;
+            console.log(`Found ${headings.length} headings for editing:`, counts);
+        }
+        
+        function changeHeadingLevel(headingIndex, newLevel) {
+            // Update the data
+            headingsData[headingIndex].currentLevel = newLevel;
+            
+            // Update button states
+            const headingItem = document.querySelectorAll('.heading-item')[headingIndex];
+            const buttons = headingItem.querySelectorAll('.heading-btn');
+            
+            buttons.forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.textContent.toLowerCase() === newLevel) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            // Update heading counts in real-time
+            updateHeadingCounts();
+            
+            console.log(`Changed heading ${headingIndex} to ${newLevel}: "${headingsData[headingIndex].text.substring(0, 30)}..."`);
+        }
+        
+        function updateHeadingCounts() {
+            const headingStats = document.getElementById('headingStats');
+            
+            // Calculate current counts based on user selections
+            const counts = { h1: 0, h2: 0, h3: 0, h4: 0, h5: 0, h6: 0 };
+            
+            headingsData.forEach(headingData => {
+                counts[headingData.currentLevel]++;
+            });
+            
+            // Display updated counts in compact format
+            const activeHeadings = Object.entries(counts).filter(([level, count]) => count > 0);
+            
+            let statsHtml = `<div class="font-medium">Total: ${headingsData.length} headings</div>`;
+            if (activeHeadings.length > 0) {
+                const countItems = activeHeadings.map(([level, count]) => 
+                    `<span class="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium mr-1 mb-1">${level.toUpperCase()}: ${count}</span>`
+                ).join('');
+                statsHtml += `<div class="mt-2">${countItems}</div>`;
+            }
+            
+            headingStats.innerHTML = statsHtml;
+        }
+        
+        function applyHeadingChanges() {
+            if (!currentHtmlDOM || headingsData.length === 0) {
+                showError('No headings to update');
+                return;
+            }
+            
+            // Update the DOM
+            headingsData.forEach((headingData, index) => {
+                if (headingData.currentLevel !== headingData.originalLevel) {
+                    // Create new element with correct tag
+                    const newElement = currentHtmlDOM.createElement(headingData.currentLevel);
+                    newElement.innerHTML = headingData.element.innerHTML;
+                    
+                    // Replace old element
+                    headingData.element.parentNode.replaceChild(newElement, headingData.element);
+                    headingData.element = newElement;
+                    headingData.originalLevel = headingData.currentLevel;
+                }
+            });
+            
+            // Get updated HTML
+            const updatedHtml = currentHtmlDOM.body.innerHTML;
+            
+            // Update all displays
+            document.getElementById('htmlOutput').value = updatedHtml;
+            document.getElementById('previewArea').innerHTML = updatedHtml;
+            window.currentHtml = updatedHtml;
+            
+            // Update debug info
+            const headingCount = (updatedHtml.match(/<h[1-6]>/g) || []).length;
+            const listCount = (updatedHtml.match(/<ul>/g) || []).length;
+            const listItemCount = (updatedHtml.match(/<li>/g) || []).length;
+            
+            document.getElementById('previewDebug').innerHTML = 
+                `Preview updated: ${updatedHtml.length} chars, ${headingCount} headings, ${listCount} lists, ${listItemCount} items`;
+            
+            showSuccess('Heading changes applied successfully!');
+            console.log('Applied heading changes, updated HTML length:', updatedHtml.length);
         }
 
         function refreshPreview() {
